@@ -1,0 +1,16 @@
+# Level 1 variant on Arista cEOS-lab (not wired up yet; see docs/containerlab.md).
+# docker import cEOS64-lab-4.33.x.tar.xz ceos:4.33
+name: creeky-l1-eos
+topology:
+  nodes:
+    workstation:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      exec:
+        - ip addr add 10.10.10.10/24 dev eth1
+    sw1:
+      kind: arista_ceos
+      image: ceos:4.33
+      startup-config: sw1-ceos.cfg
+  links:
+    - endpoints: ["workstation:eth1", "sw1:eth1"]
