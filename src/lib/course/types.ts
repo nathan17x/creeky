@@ -1,21 +1,23 @@
 import type { World } from "@/lib/sim/network"
 import type { HostName, LabEvent } from "@/lib/sim/types"
+import type { Bench, BenchScene } from "@/lib/wiring/bench"
 
 /** Lessons run in teach or help. The section quiz has its own mode. */
 export type Mode = "teach" | "help" | "quiz"
 
-export interface Objective {
+/** W is the section's world: a network for terminal sections, a bench for wiring. */
+export interface Objective<W = unknown> {
   id: string
   title: string
   /** Teach mode: what Creeky says while this is the current step. Give shorthand and full command. */
   teach: string
-  /** Help mode: progressively stronger hints. The last one names the command. */
+  /** Help mode: progressively stronger hints. The last one gives the answer. */
   hints: string[]
   /** One line shown when the step is done. */
   why: string
   /** Only counts once every earlier objective in the lesson is done. */
   ordered?: boolean
-  done: (event: LabEvent, world: World) => boolean
+  done: (event: LabEvent, world: W) => boolean
 }
 
 export interface BriefSection {
@@ -23,16 +25,6 @@ export interface BriefSection {
   points: string[]
   /** Optional terminal snippet. */
   example?: string
-}
-
-export interface DeviceInfo {
-  name: string
-  role: string
-  platform: string
-  mgmt: string
-  access: string
-  /** What this becomes when backed by ContainerLab. */
-  future: string
 }
 
 export interface TopoNode {
@@ -50,19 +42,23 @@ export interface TopoLink {
   note?: string
 }
 
-/** The complaint that kicks off a section, told by Gus. */
+export type Character = "gus" | "dot" | "ray"
+
+/** The complaint that kicks off a section. */
 export interface Ticket {
   from: string
   role: string
-  /** What Gus says before the fix. */
+  /** Which beaver is complaining. */
+  who: Character
+  /** What they say before the fix. */
   message: string
   /** Hard facts, as bullets. */
   facts: string[]
-  /** What Gus says once it's fixed. */
+  /** What they say once it's fixed. */
   solved: string
 }
 
-export interface Lesson {
+export interface Lesson<W = unknown> {
   id: string
   /** 1-based position in its section. */
   number: number
@@ -70,46 +66,67 @@ export interface Lesson {
   summary: string
   tags: string[]
   brief: BriefSection[]
-  objectives: Objective[]
+  objectives: Objective<W>[]
   /** The "aha" line when the lesson is done. Leads into the next lesson. */
   aha: string
-  /** Lesson needs the command prompt already open. */
-  needsCmd: boolean
-  /** Terminal lines that complete this lesson. Used to fast-forward into later lessons. */
+  /** Terminal sections: lesson needs the command prompt already open. */
+  needsCmd?: boolean
+  /**
+   * What completes this lesson, used to fast-forward into later lessons.
+   * Terminal: lines to type. Wiring: "cable:portA>portB" connections.
+   */
   solution: string[]
 }
 
-export interface Quiz {
+export interface Quiz<W = unknown> {
   /** Par time in seconds. */
   par: number
   summary: string
-  objectives: Objective[]
+  objectives: Objective<W>[]
 }
 
-export interface Section {
+interface SectionBase<W> {
   id: string
   number: number
   title: string
   summary: string
   ticket: Ticket
-  network: string[]
-  devices: DeviceInfo[]
-  topology: { nodes: TopoNode[]; links: TopoLink[] }
-  lessons: Lesson[]
-  quiz: Quiz
+  lessons: Lesson<W>[]
+  quiz: Quiz<W>
   /** Quiz worlds may differ from lesson worlds (e.g. a different port). */
-  createWorld: (opts?: { quiz?: boolean }) => World
+  createWorld: (opts?: { quiz?: boolean }) => W
   /** Teach-mode reactions to events, shared by every lesson. */
-  react: (event: LabEvent, mode: Mode, world: World) => string | null
+  react: (event: LabEvent, mode: Mode, world: W) => string | null
   /** Ticket is solved in this world. */
-  solved: (world: World) => boolean
+  solved: (world: W) => boolean
 }
+
+/** Command-line work on a simulated network, from the Creekdows desktop. */
+export interface TerminalSection extends SectionBase<World> {
+  kind: "terminal"
+  network: string[]
+  topology: { nodes: TopoNode[]; links: TopoLink[] }
+}
+
+/** Cabling gear on a workbench. */
+export interface WiringSection extends SectionBase<Bench> {
+  kind: "wiring"
+  scene: BenchScene
+}
+
+export type Section = TerminalSection | WiringSection
 
 export interface LockedSection {
   id: string
-  number: number
   title: string
   summary: string
-  tags: string[]
-  locked: true
+}
+
+/** A subject: networking, wiring, ... */
+export interface CourseClass {
+  id: string
+  title: string
+  summary: string
+  sections: Section[]
+  upcoming: LockedSection[]
 }

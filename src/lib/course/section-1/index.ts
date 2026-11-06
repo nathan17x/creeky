@@ -1,5 +1,5 @@
-import { WORKSTATION } from "@/lib/sim/network"
-import type { Lesson, Objective, Section } from "../types"
+import { WORKSTATION, type World } from "@/lib/sim/network"
+import type { Lesson, Objective, TerminalSection } from "../types"
 import {
   LABEL,
   PANEL,
@@ -21,7 +21,7 @@ const USER = SWITCH.username
 // ------------------------------------------------- reusable objectives
 
 const o = {
-  runDialog: (): Objective => ({
+  runDialog: (): Objective<World> => ({
     id: "run",
     title: "Open the Run box",
     teach: "Click **Start**, then **Run…**. (On a real Windows PC, **Windows key + R** does the same thing.)",
@@ -29,7 +29,7 @@ const o = {
     why: "The Run box starts any program by name.",
     done: is.runDialog,
   }),
-  cmd: (): Objective => ({
+  cmd: (): Objective<World> => ({
     id: "cmd",
     title: "Start the command prompt",
     teach: "Type **cmd** and press Enter.",
@@ -37,7 +37,7 @@ const o = {
     why: "This window is where you type commands.",
     done: is.cmdOpen,
   }),
-  pingPanel: (): Objective => ({
+  pingPanel: (): Objective<World> => ({
     id: "ping-panel",
     title: `Ping the router panel (${PANEL.ip}) to see if it's connected`,
     teach: `Type **ping ${PANEL.ip}**. Watch for **Reply from**.`,
@@ -45,7 +45,7 @@ const o = {
     why: "Request timed out = no answer. The panel isn't reachable.",
     done: is.pingedPanel,
   }),
-  pingSwitch: (): Objective => ({
+  pingSwitch: (): Objective<World> => ({
     id: "ping-switch",
     title: `Ping the switch (${SW})`,
     teach: `Type **ping ${SW}**.`,
@@ -53,7 +53,7 @@ const o = {
     why: "The switch answers. You can log into it and look around.",
     done: is.switchUp,
   }),
-  telnet: (): Objective => ({
+  telnet: (): Objective<World> => ({
     id: "telnet",
     title: `Telnet to the switch (${SW})`,
     teach: `Type **telnet ${SW}**.`,
@@ -61,7 +61,7 @@ const o = {
     why: "You're connected. Now it wants a login.",
     done: is.telnetOpen,
   }),
-  login: (): Objective => ({
+  login: (): Objective<World> => ({
     id: "login",
     title: "Log in",
     teach: `Username **${USER}**, password **${PASSWORD}**. The password won't show as you type.`,
@@ -69,7 +69,7 @@ const o = {
     why: `Prompt ${SW_NAME}> means you're on the switch.`,
     done: is.loggedIn,
   }),
-  telnetLogin: (): Objective => ({
+  telnetLogin: (): Objective<World> => ({
     id: "login",
     title: `Telnet to ${SW} and log in`,
     teach: `Type **telnet ${SW}**, then log in as **${USER}** / **${PASSWORD}**.`,
@@ -77,7 +77,7 @@ const o = {
     why: "You're on the switch.",
     done: is.loggedIn,
   }),
-  enable: (): Objective => ({
+  enable: (): Objective<World> => ({
     id: "enable",
     title: "Get full control (enable)",
     teach: `Type **en** (**enable**), then the password **${PASSWORD}**. The prompt changes from **>** to **#**.`,
@@ -85,7 +85,7 @@ const o = {
     why: "# = full control.",
     done: is.enabled,
   }),
-  intStatus: (): Objective => ({
+  intStatus: (): Objective<World> => ({
     id: "int-status",
     title: "List every port",
     teach: "Type **sh int status** (**show interfaces status**). Find the one port that says **connected**.",
@@ -93,7 +93,7 @@ const o = {
     why: `${PANEL_PORT_SHORT} is the only connected port. It's labelled DANTE, but a router panel isn't Dante. Suspicious.`,
     done: is.intStatus,
   }),
-  showRun: (): Objective => ({
+  showRun: (): Objective<World> => ({
     id: "show-run",
     title: "Look at the whole config",
     teach: "Type **sh run** (**show running-config**). Every port has a **switchport access vlan** line.",
@@ -101,7 +101,7 @@ const o = {
     why: "That's every setting on the switch. Now zoom in on one port.",
     done: is.showRun,
   }),
-  inspectPort: (): Objective => ({
+  inspectPort: (): Objective<World> => ({
     id: "inspect",
     title: `Look at ${PANEL_PORT_SHORT}'s config`,
     teach: `Type **sh run int ${PORT_TYPED}** (**show running-config interface GigabitEthernet1/0/11**).`,
@@ -113,7 +113,7 @@ const o = {
     why: `It's in VLAN ${WRONG_VLAN}, the Dante VLAN.`,
     done: is.inspectedPort,
   }),
-  configMode: (): Objective => ({
+  configMode: (): Objective<World> => ({
     id: "conf",
     title: "Enter config mode",
     teach: "Type **conf t** (**configure terminal**). The prompt changes to **(config)#**.",
@@ -121,7 +121,7 @@ const o = {
     why: "You can change settings now.",
     done: is.configMode,
   }),
-  selectPort: (): Objective => ({
+  selectPort: (): Objective<World> => ({
     id: "select",
     title: `Pick port ${PANEL_PORT_SHORT}`,
     teach: `Type **int ${PORT_TYPED}** (**interface GigabitEthernet1/0/11**). The prompt changes to **(config-if)#**.`,
@@ -129,7 +129,7 @@ const o = {
     why: "What you type now only changes this port.",
     done: is.onPort,
   }),
-  vlan: (): Objective => ({
+  vlan: (): Objective<World> => ({
     id: "vlan",
     title: `Move the port to VLAN ${PANEL.vlan}`,
     teach: `Type **sw acc vlan ${PANEL.vlan}** (**switchport access vlan ${PANEL.vlan}**).`,
@@ -137,7 +137,7 @@ const o = {
     why: `The port is on VLAN ${PANEL.vlan} now, same network as the panel.`,
     done: is.vlanFixed,
   }),
-  label: (): Objective => ({
+  label: (): Objective<World> => ({
     id: "label",
     title: `Label the port ${LABEL}`,
     teach: `Type **desc ${LABEL}** (**description ${LABEL}**).`,
@@ -145,7 +145,7 @@ const o = {
     why: "The next engineer will know what this port is for.",
     done: is.labeled,
   }),
-  verify: (): Objective => ({
+  verify: (): Objective<World> => ({
     id: "verify",
     title: "Leave config mode and check the port",
     teach: "Type **end**, then **sh int status** (**show interfaces status**).",
@@ -154,7 +154,7 @@ const o = {
     ordered: true,
     done: is.intStatus,
   }),
-  save: (): Objective => ({
+  save: (): Objective<World> => ({
     id: "save",
     title: "Save the config",
     teach: "Type **wr** (**write memory**).",
@@ -163,7 +163,7 @@ const o = {
     ordered: true,
     done: is.saved,
   }),
-  logout: (): Objective => ({
+  logout: (): Objective<World> => ({
     id: "logout",
     title: "Leave the switch",
     teach: "Type **exit**. You're back at **C:\\Users\\student>**.",
@@ -172,7 +172,7 @@ const o = {
     ordered: true,
     done: is.loggedOut,
   }),
-  panelUp: (): Objective => ({
+  panelUp: (): Objective<World> => ({
     id: "panel-up",
     title: `Ping the router panel (${PANEL.ip})`,
     teach: `Type **ping ${PANEL.ip}**.`,
@@ -187,7 +187,7 @@ const o = {
 
 const login = [`telnet ${SW}`, USER, PASSWORD, "en", PASSWORD]
 
-const lessons: Lesson[] = [
+const lessons: Lesson<World>[] = [
   {
     id: "open-terminal",
     number: 1,
@@ -348,7 +348,8 @@ const lessons: Lesson[] = [
   },
 ]
 
-export const section1: Section = {
+export const section1: TerminalSection = {
+  kind: "terminal",
   id: "field-switch",
   number: 1,
   title: "Router panel down",
@@ -356,6 +357,7 @@ export const section1: Section = {
   ticket: {
     from: "Gus",
     role: "A2",
+    who: "gus",
     message:
       "My router panel won't connect... I plugged it into the field switch, EXT_9003, and nothing. " +
       "I'm gonna go get another coffee! I need this to work before lunch!!",
@@ -373,32 +375,6 @@ export const section1: Section = {
     `${SW_NAME}: ${SW} (VLAN 69).`,
     `Router panel: ${PANEL.ip}, belongs on VLAN ${PANEL.vlan} (10.1.14.x).`,
     `VLAN ${WRONG_VLAN} is Dante (10.1.12.x).`,
-  ],
-  devices: [
-    {
-      name: WORKSTATION.computerName,
-      role: "Your PC",
-      platform: "Creekdows 98 command prompt",
-      mgmt: `${WORKSTATION.ip}/${WORKSTATION.prefix}`,
-      access: `logged in as ${WORKSTATION.user}`,
-      future: "linux kind with a telnet client",
-    },
-    {
-      name: SW_NAME,
-      role: "16-port field switch",
-      platform: `Cisco ${SWITCH.model}, IOS ${SWITCH.version}`,
-      mgmt: `${SW}/24 on Vlan69`,
-      access: `telnet ${USER} / ${PASSWORD} · enable ${PASSWORD}`,
-      future: "cisco_iol (type L2)",
-    },
-    {
-      name: PANEL.name,
-      role: "Plugged into an unknown port",
-      platform: "Audio router panel",
-      mgmt: `${PANEL.ip}/24`,
-      access: "ping only",
-      future: "linux kind with a static IP",
-    },
   ],
   topology: {
     nodes: [

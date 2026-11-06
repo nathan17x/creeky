@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Beaver } from "@/components/beaver"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { classOf } from "@/lib/course"
 import type { Section } from "@/lib/course/types"
 import { type RunStats, type ScoreBreakdown, formatTime } from "@/lib/scoring"
 
@@ -57,8 +58,8 @@ export function QuizResults({
           ))}
         </dl>
         <DialogFooter>
-          <Link href="/" className={buttonVariants({ variant: "ghost" })}>
-            All sections
+          <Link href={`/classes/${classOf(section).id}`} className={buttonVariants({ variant: "ghost" })}>
+            Back to {classOf(section).title}
           </Link>
           <Button onClick={onRetry}>Retry</Button>
         </DialogFooter>

@@ -6,16 +6,3 @@ services:
       - "3001:3000"
     restart: unless-stopped
 
-  # --- Planned: real devices via ContainerLab (see docs/containerlab.md) ---
-  # lab-gateway:
-  #   build: ./gateway
-  #   environment:
-  #     CLAB_TOPOLOGY_DIR: /labs
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - /var/run/netns:/var/run/netns
-  #     - ./labs:/labs:ro
-  #   network_mode: host
-  #   pid: host
-  #   privileged: true
-  #   profiles: ["real-labs"]

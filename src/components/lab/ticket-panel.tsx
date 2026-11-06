@@ -2,12 +2,12 @@ import { Beaver } from "@/components/beaver"
 import type { Ticket } from "@/lib/course/types"
 import { cn } from "@/lib/utils"
 
-/** Gus and his complaint. Always visible in the sidebar. */
+/** Whoever filed the ticket, and their complaint. Always visible in the sidebar. */
 export function TicketPanel({ ticket, solved }: { ticket: Ticket; solved: boolean }) {
   return (
     <div className="flex items-start gap-3">
       <div className="flex shrink-0 flex-col items-center gap-1 pt-1">
-        <Beaver variant="gus" mood={solved ? "happy" : "grumpy"} size={52} />
+        <Beaver variant={ticket.who} mood={solved ? "happy" : "grumpy"} size={52} />
         <span className="text-[10px] text-muted-foreground">
           {ticket.from} · {ticket.role}
         </span>

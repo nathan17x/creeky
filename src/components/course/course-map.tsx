@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react"
 import { Beaver } from "@/components/beaver"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { lessonCode, partHref, sections, upcoming } from "@/lib/course"
+import { classes, lessonCode, partHref } from "@/lib/course"
 import { PROGRESS_KEY, type Progress, bestQuiz, lessonKey, loadProgress } from "@/lib/progress"
 import { formatTime } from "@/lib/scoring"
 import { cn } from "@/lib/utils"
@@ -25,12 +25,16 @@ function snapshot() {
 }
 const serverSnapshot: Progress = { lessons: [], quizzes: [] }
 
-export function CourseMap() {
+/** One class's sections. */
+export function CourseMap({ classId }: { classId: string }) {
   const progress = useSyncExternalStore(subscribe, snapshot, () => serverSnapshot)
+  const cls = classes.find((c) => c.id === classId) ?? classes[0]
 
   return (
-    <div className="flex flex-col gap-8">
-      {sections.map((s) => {
+    <div className="flex flex-col gap-6">
+        <div key={cls.id} className="flex flex-col gap-5">
+          <p className="text-sm text-muted-foreground">{cls.summary}</p>
+      {cls.sections.map((s) => {
         const done = s.lessons.filter((l) => progress.lessons.includes(lessonKey(s.id, l.id)))
         const next = s.lessons.find((l) => !done.includes(l)) ?? s.lessons[0]
         const best = bestQuiz(s.id, progress)
@@ -44,7 +48,7 @@ export function CourseMap() {
               </span>
             </div>
             <div className="flex items-start gap-3">
-              <Beaver variant="gus" mood="grumpy" size={40} />
+              <Beaver variant={s.ticket.who} mood="grumpy" size={40} />
               <p className="flex-1 rounded-xl border bg-card px-3 py-2 text-sm italic text-muted-foreground">&ldquo;{s.ticket.message}&rdquo;</p>
             </div>
             <ol className="flex flex-col gap-2">
@@ -106,16 +110,16 @@ export function CourseMap() {
         )
       })}
 
-      {upcoming.map((s) => (
-        <section key={s.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed p-4 opacity-60">
-          <span className="font-pixel text-[10px] tracking-wide text-muted-foreground">SECTION {s.number}</span>
-          <h2 className="font-semibold">{s.title}</h2>
+      {cls.upcoming.map((u) => (
+        <section key={u.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed p-4 opacity-60">
+          <h3 className="font-semibold">{u.title}</h3>
           <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="size-3.5" /> Coming soon
           </span>
-          <p className="w-full text-sm text-muted-foreground">{s.summary}</p>
+          <p className="w-full text-sm text-muted-foreground">{u.summary}</p>
         </section>
       ))}
+        </div>
     </div>
   )
 }

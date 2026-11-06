@@ -1,8 +1,7 @@
 /**
  * A TerminalBackend is anything that speaks raw terminal bytes, the same
- * contract a PTY over a WebSocket would have. The browser terminal only ever
- * talks to this interface, so the in-browser simulator can later be swapped
- * for a real ContainerLab device (cEOS / IOL) behind a gateway service.
+ * contract a PTY over a WebSocket would have. The browser terminal only
+ * talks to this interface, never to the simulator directly.
  */
 export interface TerminalBackend {
   /** Attach the terminal. `write` receives output bytes (ANSI allowed). */
@@ -46,6 +45,13 @@ export type LabEvent =
   | { type: "run"; command: string; ok: boolean }
   | { type: "cmd-open" }
   | { type: "cmd-closed" }
+  /** Wiring: picked a cable from the bin. */
+  | { type: "cable-pick"; cable: string }
+  /** Wiring: tried to plug one end of a cable into a port. */
+  | { type: "plug"; cable: string; port: string; ok: boolean; problem?: "connector" | "occupied" | "same" }
+  /** Wiring: both ends plugged in. */
+  | { type: "wire"; cable: string; a: string; b: string; direction: "ok" | "in-in" | "out-out" | "no-power" | "mixed" }
+  | { type: "unwire"; cable: string; a: string; b: string }
 
 /** What a shell can do to the lab while handling a line. */
 export interface ShellContext {

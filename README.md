@@ -1,39 +1,54 @@
-# Creeky: network trainer (demo)
+# Creeky: broadcast engineering basics (demo)
 
-Networking trainer for beginner broadcast engineers, guided by Creeky the pixel beaver. Next.js 16 · Tailwind 4 · shadcn/ui · xterm.js.
+Hands-on lessons for beginner broadcast engineers, guided by Creeky the pixel beaver.
+Next.js 16 · Tailwind 4 · shadcn/ui · xterm.js.
 
 ## Run
 
 ```bash
-docker compose up --build     # http://localhost:3000
+docker compose up --build -d   # http://localhost:3001
 # or
-npm install && npm run dev
+npm install && npm run dev     # http://localhost:3000
 ```
 
-## What's here
+## Classes
 
-**Section 1: Router panel down.** Gus (A2) says his router panel on field switch CREEKY_EXT_9003 is dead.
-Lessons run back to back in one lab, on a Creekdows 98 desktop:
+Each class has sections. Each section is one ticket from a grumpy colleague. Lessons run back to back in one
+lab (Teach or Help mode, not scored), then a section quiz (timed, scored).
 
-- 1.1 Open the command prompt: Start → Run, type `cmd` (brief mentions Windows key + R on a real PC)
+### Networking: Router panel down (Gus, A2)
+
+Creekdows 98 desktop with a command prompt and a simulated Cisco switch, CREEKY_EXT_9003.
+
+- 1.1 Open the command prompt: Start → Run, type `cmd`
 - 1.2 Get on the switch: ping the panel (10.1.14.203) and switch (10.1.69.203), `telnet`, admin / Creeky, `en`
 - 1.3 Find the port: `sh int status`, `sh run`, `sh run int gi1/0/11` (VLAN 112, Dante)
 - 1.4 Fix it: `conf t`, `int gi1/0/11`, `sw acc vlan 114`, `desc ROUTER`, `end`, `wr`, `exit`, ping the panel
-- Section quiz: the whole job from a fresh desktop, timed and scored
+- Quiz: the whole job; the panel is on a random other port
 
-Lessons have Teach and Help modes and aren't scored. Jumping to a later lesson fast-forwards the lab.
-Quiz: 100 per step, up to +400 time bonus against par, −15 per error. Progress lives in `localStorage`.
+### Wiring: Camera 3's CCU (Ray, Camera 3)
+
+A drawing of the Sony HDCU-5500 rear panel (measured from a photo), with the camera, monitor, sync generator,
+RCP, audio console and power strip as status tiles. Each tray label is a cable with one end already plugged in:
+drag it onto the right jack. Jacks only lock onto matching signals (reference into SDI RET does nothing).
+
+- 1.1 Camera to CCU: SMPTE fiber into CAMERA, power cord into the AC inlet; the CCU powers the camera
+- 1.2 Picture and reference: monitor on SDI OUT 1, sync generator into REFERENCE
+- 1.3 Control and audio: RCP into RCP/CNU, audio console on AUDIO OUT CH1
+- Quiz: the whole chain from an empty bench
+
+Progress lives in `localStorage` (no accounts).
 
 ## Layout
 
 ```
-src/lib/sim/            simulator: TerminalBackend, line editor, Windows-style cmd (ping/telnet/ssh), IOS switch
-src/lib/course/         sections and lessons: briefs, objectives (event predicates), Creeky reactions
-src/components/course/  course map (home page)
-src/components/lab/     section runner, desktop, terminal, Gus ticket, Creeky, topology, quiz results
-labs/level-1/           old ContainerLab sketch (pre-section-1; needs updating)
-docs/containerlab.md    plan for real Arista EOS / Cisco IOS behind a lab-gateway container
+src/lib/course/          classes, sections, lessons, objectives, ticket text, Creeky reactions
+src/lib/course/runtime.ts binds a section's world to its objectives for the shared runner
+src/lib/sim/             terminal simulator: line editor, Windows-style cmd, IOS switch
+src/lib/wiring/          workbench: devices, typed jacks, cables, signal flow; panels/ = drawn rear-panel jack maps
+src/components/lab/      section runner, terminal stage (desktop), bench stage, panels/ (rear-panel drawings), ticket, Creeky, quiz results
+src/components/course/   home page course map
 ```
 
-To add a section, create `src/lib/course/section-N/` exporting a `Section` (ticket, lessons, quiz, world) and register it in
-`src/lib/course/index.ts`. Lesson text is short bullet points only.
+To add a section: create `src/lib/course/<name>/` exporting a `TerminalSection` or `WiringSection`
+and add it to a class in `src/lib/course/index.ts`. Lesson text is short bullet points only.

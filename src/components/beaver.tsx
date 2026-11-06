@@ -59,6 +59,10 @@ const EYES = {
 
 /** Gus: no hat, greyer fur. */
 const GUS: Record<string, string> = { ...BASE, b: "#6e5a48", t: "#c4b29b" }
+/** Dot: no hat, ginger fur. */
+const DOT: Record<string, string> = { ...BASE, b: "#b0612c", t: "#efc79a" }
+/** Ray: no hat, dark fur. */
+const RAY: Record<string, string> = { ...BASE, b: "#4a3020", t: "#b8916a" }
 
 
 function pixels(rows: string[], palette: Record<string, string>, yOffset = 0) {
@@ -82,12 +86,12 @@ export function Beaver({
 }: {
   size?: number
   mood?: BeaverMood
-  /** creeky: purple hat. gus: no hat, grey fur. */
-  variant?: "creeky" | "gus"
+  /** creeky: purple cap. gus: grey, no hat. dot: ginger, no hat. */
+  variant?: "creeky" | "gus" | "dot" | "ray"
   className?: string
 }) {
-  const gus = variant === "gus"
-  const palette = gus ? GUS : BASE
+  const gus = variant !== "creeky"
+  const palette = { creeky: BASE, gus: GUS, dot: DOT, ray: RAY }[variant]
   const head = gus ? HEAD.bare : HEAD.hat
   const body = BODY.map((r, i) => (i >= 2 && i <= 5 ? head[i - 2] : r ?? ""))
   // Crop to the sprite: the hat starts on row 2, Gus's ears on row 3.
@@ -101,7 +105,7 @@ export function Beaver({
       shapeRendering="crispEdges"
       className={cn("shrink-0", className)}
       role="img"
-      aria-label={gus ? "Gus the beaver" : "Creeky the beaver"}
+      aria-label={`${variant[0].toUpperCase()}${variant.slice(1)} the beaver`}
     >
       {pixels(body, palette)}
       {mood === "idle" && (

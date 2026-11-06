@@ -7,20 +7,22 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { getSection, lessonCode, partHref, type Part } from "@/lib/course"
-import type { Mode, Objective, Section } from "@/lib/course/types"
+import { classOf, getSection, lessonCode, partHref, type Part } from "@/lib/course"
+import { type BoundObjective, createRuntime } from "@/lib/course/runtime"
+import type { Mode } from "@/lib/course/types"
 import { markLesson, saveQuiz } from "@/lib/progress"
 import { ERROR_PENALTY, formatTime, score } from "@/lib/scoring"
-import { SimulatedLab } from "@/lib/sim/simulated-lab"
 import type { LabEvent } from "@/lib/sim/types"
-import { CMD_BANNER, WindowsCmd } from "@/lib/sim/windows-cmd"
 import { WORKSTATION, type World } from "@/lib/sim/network"
+import type { Bench } from "@/lib/wiring/bench"
 import { cn } from "@/lib/utils"
 import { CreekyPanel, type CreekyTone } from "./creeky-panel"
-import { Desktop } from "./desktop"
+import { BenchStage } from "./bench-stage"
 import { MODE_META } from "./modes"
 import { QuizResults } from "./results-dialog"
 import { RichText } from "./rich-text"
+import { SignalFlow } from "./signal-flow"
+import { TerminalStage } from "./terminal-stage"
 import { TicketPanel } from "./ticket-panel"
 import { Topology } from "./topology"
 
@@ -43,11 +45,10 @@ interface State {
 
 /** What the reducer needs to know about the current lesson / quiz. */
 interface Ctx {
-  world: World
-  objectives: Objective[]
+  objectives: BoundObjective[]
   mode: Mode
   aha: string
-  react: Section["react"]
+  react: (event: LabEvent, mode: Mode) => string | null
 }
 
 type Action =
@@ -106,15 +107,17 @@ function reducer(s: State, a: Action): State {
         (e.type === "command" && !e.ok) ||
         (e.type === "login" && !e.success) ||
         (e.type === "enable" && !e.success) ||
-        (e.type === "run" && !e.ok)
+        (e.type === "run" && !e.ok) ||
+        (e.type === "plug" && !e.ok) ||
+        (e.type === "wire" && e.direction !== "ok")
       if (failed) next.errors++
 
       // Ordered objectives only count once everything before them is done.
-      const newlyDone: Objective[] = []
+      const newlyDone: BoundObjective[] = []
       let priorDone = true
       for (const o of ctx.objectives) {
         if (next.done.includes(o.id)) continue
-        if ((!o.ordered || priorDone) && o.done(e, ctx.world)) newlyDone.push(o)
+        if ((!o.ordered || priorDone) && o.done(e)) newlyDone.push(o)
         else priorDone = false
       }
       if (newlyDone.length) {
@@ -132,7 +135,7 @@ function reducer(s: State, a: Action): State {
         }
         return next
       }
-      const reaction = ctx.mode === "quiz" ? null : ctx.react(e, ctx.mode, ctx.world)
+      const reaction = ctx.mode === "quiz" ? null : ctx.react(e, ctx.mode)
       if (reaction) next.creeky = { text: reaction, tone: "react" }
       return next
     }
@@ -162,22 +165,17 @@ function Session({
 }) {
   const section = getSection(sectionId)!
   const quiz = part === "quiz"
-  const [world] = useState(() => section.createWorld({ quiz }))
-  const [backend, setBackend] = useState<SimulatedLab | null>(null)
+  const [rt] = useState(() => createRuntime(section, quiz))
   const [briefOpen, setBriefOpen] = useState(true)
   const [resultsOpen, setResultsOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const labRef = useRef<SimulatedLab | null>(null)
-  const replaying = useRef(false)
-  const replayToken = useRef<object | null>(null)
 
   const ctxFor = useCallback(
     (idx: number, m: Mode): Ctx => {
-      if (quiz) return { world, objectives: section.quiz.objectives, mode: "quiz", aha: "", react: section.react }
-      const l = section.lessons[idx]
-      return { world, objectives: l.objectives, mode: m, aha: l.aha, react: section.react }
+      if (quiz) return { objectives: rt.quiz, mode: "quiz", aha: "", react: rt.react }
+      return { objectives: rt.lesson(idx), mode: m, aha: section.lessons[idx].aha, react: rt.react }
     },
-    [quiz, section, world]
+    [quiz, section, rt]
   )
 
   const startIdx = quiz ? 0 : (part as number) - 1
@@ -192,49 +190,8 @@ function Session({
   const objectives = ctx.objectives
   const current = objectives.find((o) => !state.done.includes(o.id))
 
-  const emit = useCallback((event: LabEvent) => {
-    dispatch({ type: "event", event, now: Date.now(), ctx: ctxRef.current, silent: replaying.current })
-  }, [])
-
-  const closeCmd = useCallback(() => {
-    const lab = labRef.current
-    if (!lab) return
-    labRef.current = null
-    lab.dispose()
-    setBackend(null)
-    emit({ type: "cmd-closed" })
-  }, [emit])
-
-  const openCmd = useCallback(() => {
-    if (labRef.current) return labRef.current
-    const lab = new SimulatedLab(new WindowsCmd(world, () => closeCmd()), CMD_BANNER)
-    lab.onEvent(emit)
-    labRef.current = lab
-    setBackend(lab)
-    emit({ type: "cmd-open" })
-    return lab
-  }, [world, emit, closeCmd])
-
-  // Jumping into a later lesson: open cmd and replay earlier lessons' solutions.
-  // The effect owns the lab's lifetime, so strict-mode remounts get a fresh one.
-  useEffect(() => {
-    const token = {}
-    if (!quiz && section.lessons[startIdx].needsCmd) {
-      replayToken.current = token
-      replaying.current = true
-      const lab = openCmd()
-      const lines = section.lessons.slice(0, startIdx).flatMap((l) => l.solution)
-      lab.replay(lines).finally(() => {
-        if (replayToken.current === token) replaying.current = false
-      })
-    }
-    return () => {
-      const lab = labRef.current
-      labRef.current = null
-      lab?.dispose()
-    }
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const emit = useCallback((event: LabEvent, silent: boolean) => {
+    dispatch({ type: "event", event, now: Date.now(), ctx: ctxRef.current, silent })
   }, [])
 
   // Lesson done: remember it. Quiz done: save the score and show results.
@@ -277,7 +234,7 @@ function Session({
   }
 
   // state.tick changes on every event, so this re-reads the live switch each render.
-  const solved = state.tick >= 0 && section.solved(world)
+  const solved = state.tick >= 0 && rt.solved()
   const startQuiz = () => {
     setBriefOpen(false)
     if (quiz) dispatch({ type: "start", now: Date.now() })
@@ -288,7 +245,9 @@ function Session({
       {/* header */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-2">
-          <div className="font-pixel text-[10px] tracking-wide text-primary">SECTION {section.number}</div>
+          <Link href={`/classes/${classOf(section).id}`} className="font-pixel text-[10px] tracking-wide text-primary hover:underline">
+            {classOf(section).title.toUpperCase()} · SECTION {section.number}
+          </Link>
           <h1 className="text-xl font-semibold tracking-tight">{section.title}</h1>
         </div>
         <nav className="flex flex-wrap items-center gap-1" aria-label="Lessons">
@@ -358,7 +317,7 @@ function Session({
           <Button
             variant="ghost"
             size="sm"
-            title="Start over from a fresh switch"
+            title="Start this lesson over"
             onClick={() => (quiz ? onReset() : window.location.assign(partHref(section, state.idx + 1)))}
           >
             <RotateCcw /> Reset
@@ -370,16 +329,21 @@ function Session({
         {/* screen */}
         <div className="flex min-w-0 flex-col gap-2">
           <div className="h-[min(640px,72vh)] overflow-hidden rounded-xl border-4 border-[#2a2a35] shadow-xl">
-            <Desktop
-              backend={backend}
-              onEvent={emit}
-              onOpenCmd={openCmd}
-              onCloseCmd={closeCmd}
-            />
+            {section.kind === "terminal" ? (
+              <TerminalStage section={section} world={rt.world as World} startIdx={startIdx} quiz={quiz} onEvent={emit} />
+            ) : (
+              <BenchStage section={section} bench={rt.world as Bench} startIdx={startIdx} quiz={quiz} onEvent={emit} />
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Click the black window to type. On the switch: <kbd className="font-mono">?</kbd> lists commands, Tab completes, ↑ recalls,
-            Ctrl+C stops a ping.
+            {section.kind === "terminal" ? (
+              <>
+                Click the black window to type. On the switch: <kbd className="font-mono">?</kbd> lists commands, Tab completes, ↑ recalls,
+                Ctrl+C stops a ping.
+              </>
+            ) : (
+              "Drag a cable label onto a jack. Click a used jack to unplug it. Hover a jack to see what it is."
+            )}
           </p>
         </div>
 
@@ -454,15 +418,21 @@ function Session({
 
           <Card size="sm">
             <CardHeader>
-              <CardTitle>Network</CardTitle>
+              <CardTitle>{section.kind === "terminal" ? "Network" : "Signal flow"}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <Topology nodes={section.topology.nodes} links={section.topology.links} active={state.host} />
-              <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                {section.network.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
+              {section.kind === "terminal" ? (
+                <>
+                  <Topology nodes={section.topology.nodes} links={section.topology.links} active={state.host} />
+                  <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                    {section.network.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <SignalFlow bench={rt.world as Bench} />
+              )}
               {quiz && (
                 <p className="text-xs text-muted-foreground">
                   Scoring: 100 per step, up to +400 for beating par ({formatTime(section.quiz.par)}), −{ERROR_PENALTY} per error.
@@ -523,9 +493,6 @@ function Session({
           onRetry={onReset}
         />
       )}
-      <Link href="/" className="sr-only">
-        All sections
-      </Link>
     </div>
   )
 }
