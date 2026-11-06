@@ -1,5 +1,6 @@
 import { IosSwitch, iosLogin } from "./ios-switch"
-import { WORKSTATION, type World, deviceAt, resolve, sameSubnet24 } from "./network"
+import { WORKSTATION, type World, deviceAt, resolve, routable } from "./network"
+import { inSubnet, isIp } from "./nic"
 import type { SwitchDevice } from "./switch-device"
 import type { Proto, Shell, ShellContext } from "./types"
 
@@ -66,13 +67,7 @@ export class WindowsCmd implements Shell {
         return
       case "ipconfig":
         ok()
-        ctx.print(
-          "\nCreekdows IP Configuration\n\n\nEthernet adapter Ethernet:\n\n" +
-          "   Connection-specific DNS Suffix  . :\n" +
-          `   IPv4 Address. . . . . . . . . . . : ${WORKSTATION.ip}\n` +
-          `   Subnet Mask . . . . . . . . . . . : ${WORKSTATION.mask}\n` +
-          `   Default Gateway . . . . . . . . . : ${WORKSTATION.gateway}\n\n`
-        )
+        ctx.print(this.ipconfig(args.some((a) => /^[-/]all$/i.test(a))))
         return
       case "ping":
         return this.ping(args, trimmed, ctx)
@@ -84,6 +79,29 @@ export class WindowsCmd implements Shell {
         fail()
         ctx.print(`'${argv[0]}' is not recognized as an internal or external command,\noperable program or batch file.\n\n`)
     }
+  }
+
+  private ipconfig(all: boolean) {
+    const a = this.world.nic.address
+    const s = this.world.nic.applied
+    const row = (k: string, v: string) => {
+      let key = k
+      for (let i = k.length; i < 35; i++) key += (34 - i) % 2 === 0 ? "." : " "
+      return `   ${key} : ${v}\n`
+    }
+    let out = "\nCreekdows IP Configuration\n\n"
+    if (all) out += row("Host Name", WORKSTATION.computerName) + "\n"
+    out += "\nEthernet adapter Ethernet:\n\n" + row("Connection-specific DNS Suffix", "")
+    if (all) {
+      out += row("Description", "Creek Gigabit Network Adapter")
+      out += row("Physical Address", WORKSTATION.mac)
+      out += row("DHCP Enabled", s.dhcp ? "Yes" : "No")
+    }
+    out += row(a.apipa ? "Autoconfiguration IPv4 Address" : "IPv4 Address", a.ip || "0.0.0.0")
+    out += row("Subnet Mask", a.mask || "0.0.0.0")
+    out += row("Default Gateway", a.gateway)
+    if (all) out += row("DNS Servers", a.dns[0] ?? "") + a.dns.slice(1).map((d) => `${" ".repeat(41)}${d}\n`).join("")
+    return out + "\n"
   }
 
   private async ping(args: string[], line: string, ctx: ShellContext) {
@@ -102,23 +120,29 @@ export class WindowsCmd implements Shell {
       ctx.print("\nUsage: ping [-t] [-n count] target_name\n\n")
       return
     }
+    const byName = !isIp(target)
     const ip = resolve(this.world, target)
+    if (byName) ctx.emit({ type: "resolve", host: this.host, name: target.toLowerCase(), ip })
     if (!ip) {
       ctx.emit({ type: "command", host: this.host, line, ok: false })
       ctx.print(`Ping request could not find host ${target}. Please check the name and try again.\n\n`)
       return
     }
     ctx.emit({ type: "command", host: this.host, line, ok: true, canonical: "ping" })
-    const local = ip.startsWith("127.") || ip === WORKSTATION.ip
+    const me = this.world.nic.address
+    const local = ip.startsWith("127.") || ip === me.ip
     const alive = local || this.world.alive(ip)
-    const ttl = local ? 128 : sameSubnet24(ip, WORKSTATION.ip) ? 255 : 254
-    ctx.print(`\nPinging ${ip} with 32 bytes of data:\n`)
+    const noRoute = !local && !routable(this.world, ip)
+    const ttl = local ? 128 : inSubnet(ip, me.ip, me.mask) ? 255 : ip.startsWith("10.") ? 254 : 54
+    ctx.print(`\nPinging ${byName ? `${target} [${ip}]` : ip} with 32 bytes of data:\n`)
     let sent = 0
     const times: number[] = []
     for (; (forever || sent < count) && !ctx.aborted(); sent++) {
-      await ctx.sleep(alive ? 450 : 1200)
+      await ctx.sleep(alive || noRoute ? 450 : 1200)
       if (ctx.aborted()) break
-      if (alive) {
+      if (noRoute) {
+        ctx.print("PING: transmit failed. General failure.\n")
+      } else if (alive) {
         const ms = 1 + Math.floor(Math.random() * 2)
         times.push(ms)
         ctx.print(`Reply from ${ip}: bytes=32 time=${ms}ms TTL=${ttl}\n`)
@@ -137,7 +161,7 @@ export class WindowsCmd implements Shell {
     }
     if (ctx.aborted()) ctx.print("Control-C\n")
     ctx.print("\n")
-    ctx.emit({ type: "ping", host: this.host, target: ip, success: recv > 0 })
+    ctx.emit({ type: "ping", host: this.host, target: ip, name: byName ? target.toLowerCase() : undefined, success: recv > 0 })
   }
 
   /** TCP connect. Returns the device if the port is open, else prints the client error. */
@@ -171,7 +195,7 @@ export class WindowsCmd implements Shell {
   }
 
   private session(dev: SwitchDevice, proto: Proto, ctx: ShellContext) {
-    const sw = new IosSwitch(dev, this.world, { proto, from: WORKSTATION.ip }, (c) => {
+    const sw = new IosSwitch(dev, this.world, { proto, from: this.world.nic.address.ip }, (c) => {
       c.pop()
       c.print(proto === "telnet" ? "\n\nConnection to host lost.\n\n" : `Connection to ${dev.cfg.ip} closed.\n\n`)
       c.emit({ type: "logout", proto, target: dev.cfg.ip, host: dev.hostname })

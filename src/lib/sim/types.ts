@@ -1,3 +1,5 @@
+import type { IpSettings } from "./nic"
+
 /**
  * A TerminalBackend is anything that speaks raw terminal bytes, the same
  * contract a PTY over a WebSocket would have. The browser terminal only
@@ -14,6 +16,10 @@ export interface TerminalBackend {
   dispose(): void
 }
 
+/** Creekdows windows besides the command prompt. */
+export type WindowName = "video" | "ncpa" | "adapter" | "ipv4"
+export type NicField = "dhcp" | "ip" | "mask" | "gateway" | "dnsAuto" | "dns1" | "dns2"
+
 /** "workstation" or a device hostname. */
 export type HostName = string
 
@@ -23,7 +29,10 @@ export type Proto = "ssh" | "telnet"
 
 export type LabEvent =
   | { type: "command"; host: HostName; line: string; ok: boolean; canonical?: string; privileged?: boolean; error?: CommandError }
-  | { type: "ping"; host: HostName; target: string; success: boolean }
+  /** `name` is set when pinged by name instead of IP. */
+  | { type: "ping"; host: HostName; target: string; name?: string; success: boolean }
+  /** A name was looked up. No ip = lookup failed. */
+  | { type: "resolve"; host: HostName; name: string; ip?: string }
   /** A client tried to open a session. `result` is what the far end did. */
   | { type: "connect"; proto: Proto; target: string; user?: string; result: "open" | "refused" | "timeout" | "unresolved" }
   | { type: "hostkey"; target: string; accepted: boolean }
@@ -44,14 +53,15 @@ export type LabEvent =
   /** Desktop: something typed into Run and submitted. */
   | { type: "run"; command: string; ok: boolean }
   | { type: "cmd-open" }
+  /** Desktop: a window opened or closed. `adapter` names which adapter's dialog. */
+  | { type: "window"; name: WindowName; open: boolean; adapter?: string }
+  /** IPv4 Properties: a field changed. `commit` = user left the field. `auto` = Windows filled it in. */
+  | { type: "nic-field"; field: NicField; value: string; commit?: boolean; auto?: boolean }
+  /** IPv4 Properties OK (stage "pending") or adapter Properties OK (stage "applied"). */
+  | { type: "nic"; stage: "pending" | "applied"; settings: IpSettings }
+  /** Desktop: the media player's "I watched it" button. */
+  | { type: "watched"; video: string }
   | { type: "cmd-closed" }
-  /** Wiring: picked a cable from the bin. */
-  | { type: "cable-pick"; cable: string }
-  /** Wiring: tried to plug one end of a cable into a port. */
-  | { type: "plug"; cable: string; port: string; ok: boolean; problem?: "connector" | "occupied" | "same" }
-  /** Wiring: both ends plugged in. */
-  | { type: "wire"; cable: string; a: string; b: string; direction: "ok" | "in-in" | "out-out" | "no-power" | "mixed" }
-  | { type: "unwire"; cable: string; a: string; b: string }
 
 /** What a shell can do to the lab while handling a line. */
 export interface ShellContext {

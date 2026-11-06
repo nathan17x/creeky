@@ -13,15 +13,12 @@ import type { Mode } from "@/lib/course/types"
 import { markLesson, saveQuiz } from "@/lib/progress"
 import { ERROR_PENALTY, formatTime, score } from "@/lib/scoring"
 import type { LabEvent } from "@/lib/sim/types"
-import { WORKSTATION, type World } from "@/lib/sim/network"
-import type { Bench } from "@/lib/wiring/bench"
+import { WORKSTATION } from "@/lib/sim/network"
 import { cn } from "@/lib/utils"
 import { CreekyPanel, type CreekyTone } from "./creeky-panel"
-import { BenchStage } from "./bench-stage"
 import { MODE_META } from "./modes"
 import { QuizResults } from "./results-dialog"
 import { RichText } from "./rich-text"
-import { SignalFlow } from "./signal-flow"
 import { TerminalStage } from "./terminal-stage"
 import { TicketPanel } from "./ticket-panel"
 import { Topology } from "./topology"
@@ -107,9 +104,7 @@ function reducer(s: State, a: Action): State {
         (e.type === "command" && !e.ok) ||
         (e.type === "login" && !e.success) ||
         (e.type === "enable" && !e.success) ||
-        (e.type === "run" && !e.ok) ||
-        (e.type === "plug" && !e.ok) ||
-        (e.type === "wire" && e.direction !== "ok")
+        (e.type === "run" && !e.ok)
       if (failed) next.errors++
 
       // Ordered objectives only count once everything before them is done.
@@ -329,20 +324,14 @@ function Session({
         {/* screen */}
         <div className="flex min-w-0 flex-col gap-2">
           <div className="h-[min(640px,72vh)] overflow-hidden rounded-xl border-4 border-[#2a2a35] shadow-xl">
-            {section.kind === "terminal" ? (
-              <TerminalStage section={section} world={rt.world as World} startIdx={startIdx} quiz={quiz} onEvent={emit} />
-            ) : (
-              <BenchStage section={section} bench={rt.world as Bench} startIdx={startIdx} quiz={quiz} onEvent={emit} />
-            )}
+            <TerminalStage section={section} world={rt.world} startIdx={startIdx} quiz={quiz} onEvent={emit} />
           </div>
           <p className="text-xs text-muted-foreground">
-            {section.kind === "terminal" ? (
+            {section.tip ?? (
               <>
                 Click the black window to type. On the switch: <kbd className="font-mono">?</kbd> lists commands, Tab completes, ↑ recalls,
                 Ctrl+C stops a ping.
               </>
-            ) : (
-              "Drag a cable label onto a jack. Click a used jack to unplug it. Hover a jack to see what it is."
             )}
           </p>
         </div>
@@ -418,21 +407,15 @@ function Session({
 
           <Card size="sm">
             <CardHeader>
-              <CardTitle>{section.kind === "terminal" ? "Network" : "Signal flow"}</CardTitle>
+              <CardTitle>Network</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {section.kind === "terminal" ? (
-                <>
-                  <Topology nodes={section.topology.nodes} links={section.topology.links} active={state.host} />
-                  <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                    {section.network.map((n) => (
-                      <li key={n}>{n}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <SignalFlow bench={rt.world as Bench} />
-              )}
+              <Topology nodes={section.topology.nodes} links={section.topology.links} active={state.host} />
+              <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                {section.network.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
               {quiz && (
                 <p className="text-xs text-muted-foreground">
                   Scoring: 100 per step, up to +400 for beating par ({formatTime(section.quiz.par)}), −{ERROR_PENALTY} per error.
@@ -470,6 +453,11 @@ function Session({
                       <li key={p}>{p}</li>
                     ))}
                   </ul>
+                  {b.link && (
+                    <a href={b.link.href} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-primary underline-offset-2 hover:underline">
+                      {b.link.label} ↗
+                    </a>
+                  )}
                   {b.example && (
                     <pre className="mt-2 overflow-x-auto rounded-lg bg-terminal p-3 font-mono text-xs leading-relaxed text-foreground/90">{b.example}</pre>
                   )}

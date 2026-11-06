@@ -1,24 +1,14 @@
+import { section0 } from "./section-0"
 import { section1 } from "./section-1"
 import type { CourseClass, Section } from "./types"
-import { wiringCcu } from "./wiring-ccu"
 
 export const classes: CourseClass[] = [
   {
     id: "networking",
     title: "Networking",
     summary: "IPs, VLANs and switch command lines.",
-    sections: [section1],
+    sections: [section0, section1],
     upcoming: [{ id: "ssh", title: "Turn on SSH", summary: "Set up SSH on CREEKY_EXT_9003 and turn telnet off." }],
-  },
-  {
-    id: "wiring",
-    title: "Wiring",
-    summary: "Connectors, cables and signal flow.",
-    sections: [wiringCcu],
-    upcoming: [
-      { id: "replay", title: "Replay server", summary: "Wire video ins and outs on an EVS replay server." },
-      { id: "gfx", title: "Graphics", summary: "Fill and key from a Chyron graphics system." },
-    ],
   },
 ]
 

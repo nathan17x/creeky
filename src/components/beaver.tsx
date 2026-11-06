@@ -61,8 +61,6 @@ const EYES = {
 const GUS: Record<string, string> = { ...BASE, b: "#6e5a48", t: "#c4b29b" }
 /** Dot: no hat, ginger fur. */
 const DOT: Record<string, string> = { ...BASE, b: "#b0612c", t: "#efc79a" }
-/** Ray: no hat, dark fur. */
-const RAY: Record<string, string> = { ...BASE, b: "#4a3020", t: "#b8916a" }
 
 
 function pixels(rows: string[], palette: Record<string, string>, yOffset = 0) {
@@ -87,11 +85,11 @@ export function Beaver({
   size?: number
   mood?: BeaverMood
   /** creeky: purple cap. gus: grey, no hat. dot: ginger, no hat. */
-  variant?: "creeky" | "gus" | "dot" | "ray"
+  variant?: "creeky" | "gus" | "dot"
   className?: string
 }) {
   const gus = variant !== "creeky"
-  const palette = { creeky: BASE, gus: GUS, dot: DOT, ray: RAY }[variant]
+  const palette = { creeky: BASE, gus: GUS, dot: DOT }[variant]
   const head = gus ? HEAD.bare : HEAD.hat
   const body = BODY.map((r, i) => (i >= 2 && i <= 5 ? head[i - 2] : r ?? ""))
   // Crop to the sprite: the hat starts on row 2, Gus's ears on row 3.

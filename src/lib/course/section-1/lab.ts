@@ -1,4 +1,5 @@
 import { WORKSTATION, type World } from "@/lib/sim/network"
+import { Nic } from "@/lib/sim/nic"
 import { type Port, type SwitchConfig, SwitchDevice, shortName } from "@/lib/sim/switch-device"
 import type { LabEvent } from "@/lib/sim/types"
 import type { Mode } from "../types"
@@ -64,6 +65,8 @@ export function createWorld(opts: { quiz?: boolean } = {}): World {
   const gateways = [WORKSTATION.gateway, SWITCH.gateway, "10.1.14.1", "10.1.12.1"]
   return {
     hosts: { localhost: "127.0.0.1", creeky_ext_9003: SWITCH.ip },
+    // Already set up in section 0.
+    nic: new Nic({ dhcp: false, ip: WORKSTATION.ip, mask: WORKSTATION.mask, gateway: WORKSTATION.gateway, dnsAuto: false, dns1: WORKSTATION.dns1, dns2: WORKSTATION.dns2 }),
     devices: [sw],
     vars: { panelPort },
     alive(ip) {

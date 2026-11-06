@@ -21,6 +21,19 @@ function Icon({ kind }: { kind: TopoNode["icon"] }) {
         <path d="M5 6h2M10 6h2M15 6h2M20 6h2" />
       </g>
     )
+  if (kind === "router")
+    return (
+      <g transform="translate(10,14)" className={cls} fill="none" strokeWidth="1.6">
+        <circle cx="13" cy="9" r="9" />
+        <path d="M8 6l5-3 5 3M8 12l5 3 5-3M13 3v12" />
+      </g>
+    )
+  if (kind === "cloud")
+    return (
+      <g transform="translate(9,15)" className={cls} fill="none" strokeWidth="1.6">
+        <path d="M7 16h14a5 5 0 0 0 0-10 7 7 0 0 0-13-1A5.5 5.5 0 0 0 7 16z" />
+      </g>
+    )
   return (
     <g transform="translate(10,13)" className={cls} fill="none" strokeWidth="1.6">
       <rect x="0" y="0" width="26" height="18" rx="2" />

@@ -26,6 +26,14 @@ export function TerminalStage({
   /** silent = replayed, don't grade it. */
   onEvent: (e: LabEvent, silent: boolean) => void
 }) {
+  const lesson = quiz ? undefined : section.lessons[startIdx]
+  // Jumping in: put the world where earlier lessons left it, before anything renders.
+  const [initialWindows] = useState(() => {
+    if (!lesson) return []
+    section.lessons.slice(0, startIdx).forEach((l) => l.prepare?.(world))
+    return lesson.windows ?? []
+  })
+  const video = section.lessons.find((l) => l.video)?.video
   const [backend, setBackend] = useState<SimulatedLab | null>(null)
   const labRef = useRef<SimulatedLab | null>(null)
   const replaying = useRef(false)
@@ -78,5 +86,15 @@ export function TerminalStage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return <Desktop backend={backend} onEvent={emit} onOpenCmd={openCmd} onCloseCmd={closeCmd} />
+  return (
+    <Desktop
+      backend={backend}
+      world={world}
+      video={quiz ? undefined : video}
+      initialWindows={initialWindows}
+      onEvent={emit}
+      onOpenCmd={openCmd}
+      onCloseCmd={closeCmd}
+    />
+  )
 }

@@ -1,4 +1,7 @@
+import { type Nic, inSubnet, isIp } from "./nic"
 import type { SwitchDevice } from "./switch-device"
+
+export { isIp }
 
 /** The student's workstation. Same box for every section. */
 export const WORKSTATION = {
@@ -7,17 +10,24 @@ export const WORKSTATION = {
   /** What the PC calls itself. */
   computerName: "CREEK-PC",
   user: "student",
-  ip: "10.1.1.12",
+  /** The address the student sets in section 0. */
+  ip: "10.1.1.199",
   mask: "255.255.255.0",
   prefix: 24,
   gateway: "10.1.1.1",
-  mac: "02-42-0A-01-01-0C",
+  dns1: "10.1.20.2",
+  dns2: "8.8.8.8",
+  mac: "02-42-0A-01-01-C7",
 }
 
 /** Everything a lab's shells need to know about the network around them. */
 export interface World {
   /** Names the workstation can resolve (/etc/hosts). */
   hosts: Record<string, string>
+  /** The workstation's network adapter. */
+  nic: Nic
+  /** Ask DNS for a name. Undefined = no answer. */
+  dns?(name: string): string | undefined
   /** Managed devices, looked up by IP. */
   devices: SwitchDevice[]
   /** Does this address answer pings right now? */
@@ -26,17 +36,15 @@ export interface World {
   vars: Record<string, string>
 }
 
-export function isIp(s: string) {
-  return /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split(".").every((o) => Number(o) <= 255)
-}
-
 export function resolve(world: World, name: string): string | undefined {
   if (isIp(name)) return name
-  return world.hosts[name.toLowerCase()]
+  return world.hosts[name.toLowerCase()] ?? world.dns?.(name.toLowerCase())
 }
 
-export function sameSubnet24(a: string, b: string) {
-  return a.split(".").slice(0, 3).join(".") === b.split(".").slice(0, 3).join(".")
+/** Can the PC even try to send to this address? False = no route (no gateway). */
+export function routable(world: World, ip: string) {
+  const a = world.nic.address
+  return ip.startsWith("127.") || inSubnet(ip, a.ip, a.mask) || isIp(a.gateway)
 }
 
 export function deviceAt(world: World, ip: string) {

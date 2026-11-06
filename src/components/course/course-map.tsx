@@ -104,7 +104,7 @@ export function CourseMap({ classId }: { classId: string }) {
               </li>
             </ol>
             <a href={partHref(s, next.number)} className={cn(buttonVariants(), "self-start")}>
-              <Play /> {done.length === 0 ? "Start section" : done.length === s.lessons.length ? "Replay from 1.1" : `Continue: ${lessonCode(s, next.number)}`}
+              <Play /> {done.length === 0 ? "Start section" : done.length === s.lessons.length ? `Replay from ${lessonCode(s, 1)}` : `Continue: ${lessonCode(s, next.number)}`}
             </a>
           </section>
         )
